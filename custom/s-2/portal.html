@@ -1,0 +1,49 @@
+<html>
+    <script runat="server">
+        Platform.Load("core","1.1");
+       
+        try {
+            // get parameter from URL
+            var customerId = Platform.Request.GetQueryStringParameter("_subscriberKey");
+            var contacts = Platform.Function.LookupRows("ENT.ContactInfo",["ContactId"], [customerId])
+            var mobile;
+            var email;
+
+            if (contacts.length > 0) {
+                var m = contact[0]['MobileNumber'];
+                var e = contact[0]['EmailAddress'];
+
+                mobile = m.substring(m.length - 4); // get the last 4 characters of the mobile number
+                arr = e.split("@")
+                email = arr[0].substring(0,2) + " " + arr[1].substring(arr[1].length - 2) // Display first 2 characters of email and last 2 characters of email domain
+
+                // Query all the offers associated to that customer in DESCENDING ORDER (Z - A)
+                var offers = Platform.Function.LookupOrderedRows("ENT.OffersTable", 0, "OfferType Desc",["CustomerId"], [customerId])
+            }
+          
+        } catch(e) {
+          
+          Write(Stringify(e))
+        
+        };
+         
+      </script>
+      <body>
+        <main>
+            <div>
+                <! display contact information here >
+                <ctrl:var name="mobile" />
+                <ctrl:var name="email" />
+            </div>
+            <script runat="server">
+                if (offers.length > 0) {
+            </script>
+            <div>
+                <! display offers here >
+            </div>
+            <script runat="server">
+            }
+            </script>
+        </main>
+      </body>
+</html>

@@ -1,0 +1,402 @@
+<html>
+    /* === Form handler === */
+    <script runat="server" language="ampscript">
+      
+    
+    var @debug, @testEmail
+    set @debug = false
+    
+    
+    var @success
+    
+    /* Core Sales Cloud personal data */
+    var @isConsent
+    set @isConsent = RequestParameter("isConsent")
+      
+    var @isCore
+    set @isCore = RequestParameter("isCore")
+    
+    var @emailAddress, @salutation, @firstName, @lastName,  @company, @title, @country
+    
+    /* Extended Sales Cloud personal data */
+    var @isExtra
+    set @isExtra = RequestParameter("isExtra")
+    
+    var @address1, @state, @city, @postcode, @position, @telephone
+    
+    /* Preference data */
+    var @isPref
+    set @isPref = RequestParameter("isPref")
+    
+    /*var @eventID, @foodPreferences, @misc1, @misc2, @misc3, @misc4, @misc5, @misc6, @misc7, @misc8, @misc9, @misc10*/
+    
+    var @assetID
+    var @referrer
+    
+    /* Student data */
+    var @isStudent
+    set @isStudent = RequestParameter("isStudent")
+    
+    var @university, @fieldOfStudy, @academicLevel, @semester, @expectedGraduationDate
+    
+    var @uniqueID
+    var @lastUpdated
+    set @lastUpdated = FormatDate(Now(),"DD-MM-YYYY")
+    
+    var @isContact
+    set @isContact = false
+    var @isLead
+    set @isLead = false
+    
+    set @recordTypeId = '01258000000ckjkAAA'
+    set @dateNow = FormatDate(Now(),"YYYY-MM-DD","HH:mm:ss")
+      
+    /*triggerSend variables*/
+    var @deUpdatedRows, @deUpdated, @ts, @tsDef, @ts_subkey, @ts_sub, @ts_statusCode, @ts_FName, @ts_LName, @ts_EventID, @ts_UniqueID, @errorCode, @ts_statusMsg, @debugTS, @ts_dateSubmitted, @ts_prefLanguage, @ts_salutation
+    
+    /* Only do something if the email address is present */
+    
+    set @emailAddress = lowercase(RequestParameter("emailAddress")) /* add lowercase function */
+    set @isCore = RequestParameter("isCore")
+    set @isStudent = RequestParameter("isStudent")
+    set @isExtra = RequestParameter("isExtra")
+    set @isPayment = RequestParameter("isPayment")
+    set @eventID = RequestParameter("eventID")
+    set @formType = RequestParameter("formType")
+    set @formID = @eventID
+    
+    if not empty(@emailAddress) then
+                 
+        set @salutation = RequestParameter("salutation")
+        set @firstName = RequestParameter("firstName")
+        set @lastName = RequestParameter("lastName")
+        set @company = RequestParameter("company")
+        set @title = RequestParameter("title")
+        set @country = RequestParameter("country")
+    
+        set @sfContactRows = RetrieveSalesforceObjects("Contact", "Id, FirstName, LastName, Email, RecordTypeId, Title, MailingCity, MailingCountry", "Email", "=", @emailAddress)
+    
+        if RowCount(@sfContactRows) > 0 then
+            set @sfContactRow = Row(@sfContactRows, 1)
+            set @uniqueID = Field(@sfContactRow, "Id")
+            set @isContact = true
+    
+            if not empty (Field(@sfContactRow, "MailingCountry")) then
+                set @country = Field(@sfContactRow, "MailingCountry")
+            else
+                set @country = "Switzerland"
+            endif
+    
+        else
+    
+            set @sfLeadRows = RetrieveSalesforceObjects("Lead", "Id, FirstName, LastName, Email, RecordTypeId, Title, Implied_Consent__c, Country", "Email", "=", @emailAddress)
+    
+            
+            if RowCount(@sfLeadRows) > 0 then
+                set @sfLeadRow = Row(@sfLeadRows, 1)
+                set @uniqueID = Field(@sfLeadRow, "Id")
+                set @isLead = true
+    
+                if not empty (Field(@sfLeadRow, "Country")) then
+                    set @country = Field(@sfLeadRow, "Country")
+                else
+                    set @country = "1865796"
+                endif
+                                         
+    
+                set @success = UpdateSingleSalesforceObject("Lead", @uniqueID, "LastName", @lastName, "FirstName", @firstName, "Title", @title, "Salutation", @salutation, "Company", @company, "Country", @country)
+    
+            else
+              
+                set @uniqueID = CreateSalesforceObject("Lead", 10, "RecordTypeId", @recordTypeId, "LastName", @lastName, "FirstName", @firstName, "Salutation", @salutation, "Email", @emailAddress, "Status", "New", "Company", @company, "Title", @title, "Country", @country, "Primary_Country__c","1865796" )
+    
+                set @isLead = true
+      
+            endif
+            
+            
+            
+        endif
+      
+      
+        
+        if not empty(@isExtra) and not empty(@uniqueID) then
+            set @address1 = RequestParameter("address1")
+            set @state = RequestParameter("state")
+            set @city = RequestParameter("city")
+            set @postcode = RequestParameter("postcode")
+            set @telephone = RequestParameter("telephone")
+    
+            if @isContact then
+                UpdateSingleSalesforceObject("Contact", @uniqueID, "MailingStreet", @address1, "MailingCity", @city, "MailingState", @state, "MailingPostalCode", @postcode, "Phone", @telephone )
+            else
+                UpdateSingleSalesforceObject("Lead", @uniqueID, "Street", @address1, "City", @city, "State", @state, "PostalCode", @postcode, "Phone", @telephone)
+            endif
+            
+        endif
+        
+        
+        
+        
+        
+    
+        if not empty(@isStudent) and not empty(@uniqueID) then
+            set @university = RequestParameter("university")
+            set @fieldOfStudy = RequestParameter("fieldOfStudy")
+            set @academicLevel = RequestParameter("academicLevel")
+            set @semester = RequestParameter("semester")
+            set @expectedGraduationDate = RequestParameter("expectedGraduationDate")
+            
+            set @insertCount = UpsertData("CH-Student-DE", 1, "uniqueID", @uniqueID, "university", @university, "fieldOfStudy", @fieldOfStudy, "academicLevel", @academicLevel, "semester", @semester , "expectedGraduationDate", @expectedGraduationDate )
+    
+        endif
+        
+        
+        
+    
+        if not empty(@isConsent) and not empty(@uniqueID) then
+            set @privacyAccepted = RequestParameter("privacyPolicyAccepted")
+            set @commsAccepted = RequestParameter("commsPreference")
+            set @pageURL = RequestParameter("pageURL")
+            set @preferredLanguage = RequestParameter("preferredLanguage")
+            
+            if @commsAccepted == "Opt-in to Marketing Communications" then
+                set @insertCount = UpsertData("CH-Contact-Profile-DE", 1, "uniqueID", @uniqueID, "emailAddress", @emailAddress, "lastName", @lastName, "firstName" , @firstName, 'salutation', @salutation, "explicitConsent", "True", "lastPrivacyDate", @dateNow, "hasAcceptedPrivacyPolicy", "True" , "lastConsentDate", @dateNow, "lastConsentSource", @pageURL, "lastPrivacySource", @pageURL, "updatedDate", @dateNow)
+            else
+                set @insertCount = UpsertData("CH-Contact-Profile-DE", 1, "uniqueID", @uniqueID, "emailAddress", @emailAddress, "lastName", @lastName, "firstName" , @firstName, 'salutation', @salutation, "implicitConsentType", "True", "implicitConsentReason", "Legitimate interest event registration", "lastPrivacyDate", @dateNow, "hasAcceptedPrivacyPolicy", "True", "lastPrivacySource", @pageURL, "updatedDate", @dateNow)
+            endif
+        
+        endif
+        
+    
+          if not empty(@uniqueID) then
+    
+              set @isMultiEvent = RequestParameter("isMultiEvent")
+              set @childEvents = RequestParameter("childEvents")
+    
+                  if not empty(@eventID) then
+    
+                        set @multipleDate = RequestParameter("multipleDate")
+                        set @foodPreferences = RequestParameter("foodPreferences")
+                        set @misc1 = RequestParameter("misc1")
+                        set @misc2 = RequestParameter("misc2")
+                        set @misc3 = RequestParameter("misc3")
+                        set @misc4 = RequestParameter("misc4")
+                        set @misc5 = RequestParameter("misc5")
+                        set @misc6 = RequestParameter("misc6")
+                        set @misc7 = RequestParameter("misc7")
+                        set @misc8 = RequestParameter("misc8")
+                        set @misc9 = RequestParameter("misc9")
+                        set @misc10 = RequestParameter("misc10")
+                        
+                        /* ADD CAMPAIGNS TO MULTI-CAMPAIGN QUEUE */
+                        if @isMultiEvent == "on" then
+                          set @rows = BuildRowsetFromString(@childEvents, ",")
+                          
+                          if rowCount(@rows) > 0 then
+                          
+                            for @indx = 1 to rowCount(@rows) do
+                              set @campaignID = ''
+                              set @eventRow = row(@rows, @indx)
+                              set @campaignID = field(@eventRow, 1)
+                              set @upsert = UpsertData("CH-Add-To-Campaigns-DE", 3, "campaignID", @campaignID, "uniqueID", @uniqueID, "formID", @formID, "status", "new", "updatedDate", @dateNow)
+                            next @indx
+      
+                          endif
+                        
+                        endif
+                        
+                        set @events = LookUpRows("CH-Event-DE", "eventID", @eventID)
+      
+                        if RowCount(@events) > 0 then
+    
+                            set @event = Row(@events, 1)
+                            set @eventName = Field(@event, "name")
+                            set @wantAutoResponse = Field(@event, "wantAutoResponse")
+    
+                            set @upsertCount = UpsertData("CH-Contact-Events-DE", 2, "uniqueID", @uniqueID, "eventID", @eventID, "emailAddress", @emailAddress, "status", "registered", "foodPreferences", @foodPreferences, "misc1", @misc1, "misc2", @misc2, "misc3", @misc3, "misc4", @misc4, "misc5", @misc5, "misc6", @misc6, "misc7", @misc7, "misc8", @misc8, "misc9", @misc9, "misc10", @misc10, "updatedDate", @dateNow, "multipleDate", @multipleDate)
+    
+                            if @upsertCount > 0 then
+                            
+                            
+    
+                                if @isContact then
+    
+                                    set @campaignMembers = RetrieveSalesforceObjects("CampaignMember", "Id, ContactId, CampaignId, Status", "CampaignId", "=", @eventID, "ContactId", "=", @uniqueID)
+      
+                                else
+    
+                                    set @campaignMembers = RetrieveSalesforceObjects("CampaignMember", "Id, LeadId, CampaignId, Status", "CampaignId", "=", @eventID, "LeadId", "=", @uniqueID)
+      
+                                endif
+                                
+    
+    
+                                if RowCount(@campaignMembers) == 0 then
+    
+                                     if @isContact then
+                                        set @campaignMember = CreateSalesforceObject("CampaignMember", 3, "CampaignId", @eventID, "ContactId", @uniqueID, "Status", "Form submit")
+                                    else
+                                        set @campaignMember = CreateSalesforceObject("CampaignMember", 3, "CampaignId", @eventID, "LeadId", @uniqueID, "Status", "Form submit")
+                                    endif
+    
+                                else
+    
+                                    set @campaignMember = Row(@campaignMembers, 1)
+                                    set @campaignMemberId = Field(@campaignMember, "Id")
+                                    UpdateSingleSalesforceObject("CampaignMember", @campaignMemberId, "Status", "Form submit")
+    
+                                endif
+                                
+                                OutputLine(ContentBlockById("9360"))
+                                
+    
+                                
+                                if @wantAutoResponse then
+    
+                                    set @deUpdated = lookuprows("CH-Contact-Events-DE", "uniqueID", @uniqueID, "eventID", @eventID)
+                                    set @deUpdatedRows = rowcount(@deUpdated)
+    
+                                    if @deUpdatedRows > 0 then
+    
+                                        set @ts = CreateObject("TriggeredSend")
+                                        set @tsDef = CreateObject("TriggeredSendDefinition")
+    
+                                        set @ts_subkey = @uniqueID
+    
+                                        SetObjectProperty(@tsDef, "CustomerKey", 18517)
+                                        SetObjectProperty(@ts, "TriggeredSendDefinition", @tsDef)
+    
+                                        set @ts_sub = CreateObject("Subscriber")
+                                        SetObjectProperty(@ts_sub, "EmailAddress", @emailAddress)
+                                        SetObjectProperty(@ts_sub, "SubscriberKey", @ts_subkey)
+    
+                                        set @ts_formID = CreateObject("Attribute")
+                                        SetObjectProperty(@ts_formID, "Name", "formID")
+                                        SetObjectProperty(@ts_formID,"Value", @formID)
+                                        AddObjectArrayItem(@ts_sub, "Attributes", @ts_formID)
+    
+                                        set @ts_prefLanguage = CreateObject("Attribute")
+                                        setObjectProperty(@ts_prefLanguage, "Name", "preferredLanguage")
+                                        setObjectProperty(@ts_prefLanguage,"Value", @preferredLanguage)
+                                        AddObjectArrayItem(@ts_sub, "Attributes", @ts_prefLanguage)
+    
+                                        set @ts_formType = CreateObject("Attribute")
+                                        setObjectProperty(@ts_formType, "Name", "formType")
+                                        setObjectProperty(@ts_formType,"Value", @formType)
+                                        AddObjectArrayItem(@ts_sub, "Attributes", @ts_formType)
+    
+                                        AddObjectArrayItem(@ts, "Subscribers", @ts_sub)
+    
+                                        set @ts_statusCode = InvokeCreate(@ts, @ts_statusMsg, @errorCode)
+    
+                                        if @ts_statusCode != "OK" then
+                                            RaiseError(@ts_statusMsg, 0, @ts_statusCode, @errorCode)
+                                        endif
+    
+                                    else
+                                      
+                                        OutputLine( Concat("<p>No contact found in DE</p>"))
+      
+                                    endif
+    
+                                endif
+      
+      
+      
+                              else
+    
+                                  OutputLine( Concat("<p>You appear to already be registered for the ... ", @eventName, " event</p>"))
+    
+    
+                              endif
+                              
+    
+                          else
+                            
+                              OutputLine( Concat("<p>Sorry, no event with ID ... ", @eventID, " was found</p>"))
+      
+                          endif
+    
+               endif
+       
+        endif
+    
+           
+        if @preferredLanguage == "de" then
+            OutputLine(v("<h2>Anmeldung erhalten</h2><p>Wir haben Ihre Anmeldung erhalten. Weitere Details senden wir Ihnen via Email zu.</p>"))
+        elseif @preferredLanguage == "fr" then
+            OutputLine(v("<h2>Inscription reçue</h2><p>Votre inscription a été reçue. De plus amples détails vous seront envoyés par e-mail.</p>"))
+        elseif @preferredLanguage == "it" then
+            OutputLine(v("<h2>Registrazione ricevuta</h2><p>La tua registrazione è stata ricevuta. Ulteriori dettagli ti saranno inviati via e-mail.</p>"))
+        else
+            OutputLine(v("<h2>Registration received</h2><p>Your registration has been received. Further details will be sent to you via email.</p>"))
+        endif
+    
+    else
+      
+        if @preferredLanguage == "de" then
+            OutputLine(v("<h2>Fehler bei der Anmeldung</h2><p>Es wurden keine Informationen zu Ihrer Anmeldung übermittelt.</p>"))
+        elseif @preferredLanguage == "fr" then
+            OutputLine(v("<h2>Erreur d'enregistrement</h2><p>Aucune information n'a été reçue dans votre soumission.</p>"))
+        elseif @preferredLanguage == "it" then
+            OutputLine(v("<h2>Errore di registrazione</h2><p>Nessuna informazione è stata ricevuta durante l'invio.</p>"))
+        else
+            OutputLine(v("<h2>Registration Error</h2><p>No information was received within your submission.</p>"))
+        endif
+        
+    endif
+    </script>
+    Insert: %%=v(@upsertCount)=%%
+    Event: %%=v(@eventID)=%%
+    Multi: %%=v(@isMultiEvent)=%%
+    ChildEvent: %%=v(@childEvents)=%%
+    Rows: %%=v(@rowCount1)=%%
+    <script runat="server" language="ampscript">
+    
+    // end //
+    
+    if not empty(@uniqueID) then
+    
+              set @isMultiEvent = RequestParameter("isMultiEvent")
+              set @childEvents = RequestParameter("childEvents")
+      
+      
+    
+              if @isMultiEvent == "on" then
+                set @rows = BuildRowsetFromString(@childEvents, ",")
+    
+              else
+    
+                set @rows = BuildRowsetFromString(RequestParameter("eventID"), ",") 
+    
+              endif
+              
+              
+              set @rowCount1 = rowCount(@rows)
+    
+               if (rowCount(@rows) > 0) then
+                            
+    
+                 for @indx = 1 to rowCount(@rows) do
+                      set @eventID = ''
+                      set @eventRow = row(@rows, @indx)
+                      set @eventID = field(@eventRow, 1)
+                      set @formID = @eventID
+    
+                      if not empty(@eventID) then
+    
+                        /* ... Custom form handler behaviour ... */
+                        --> save selection in new data extension CH-Multi-Events-DE
+                        --> no
+                          
+    
+                     endif
+    
+                 next @indx
+    
+           endif
+       
+        endif
+                    </script>
+</html>

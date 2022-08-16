@@ -1,0 +1,26 @@
+<html>
+    <body>
+        <main>
+            <script runat="server">
+                Platform.Load("core","1.1");
+               
+                try {
+            
+            </script>
+            <script runat="server" language="ampscript">
+                @accountId = RequestParameter("id")
+                if (accounId)
+                    @contracts = LookupRows()
+                endif
+            </script>
+           
+            <script runat="server">
+            } catch(e) {
+                  
+                  Write(Stringify(e))
+                
+                };
+            </script>
+        </main>
+    </body>
+</html>
