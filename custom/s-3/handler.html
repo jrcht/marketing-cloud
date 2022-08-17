@@ -1,0 +1,50 @@
+
+<html>
+    <script runat="server" language="ampscript">
+        /***** SIMPLE FORM HANDLER *****/
+
+        // ...
+
+        // Get all parameters post to handler eg. emailAdress, firstName, lastName
+        set @accountName = RequestParameter("accountName")
+        set @lastName = RequestParameter("lastName")
+        set @firstName = RequestParameter("firstName")
+        set @emailAddress = RequestParameter("emailAddress")
+        set @formID = "XXX" // campaignId
+        
+        // ...
+
+        set @sfContactRows = RetrieveSalesforceObjects("Contact", "Id, FirstName, LastName, Email, RecordTypeId, Title, MailingCity, MailingCountry", "Email", "=", @emailAddress)
+
+        if RowCount(@sfContactRows) > 0 then
+            set @sfContactRow = Row(@sfContactRows, 1)
+            set @uniqueID = Field(@sfContactRow, "Id")
+        else
+            set @uniqueID = CreateSalesforceObject("Contact", X, "RecordTypeId", @recordTypeId, "LastName", @lastName, "FirstName", @firstName, ... )
+        endif
+
+        if RowCount(@events) > 0 then
+            set @campaignMembers = RetrieveSalesforceObjects("CampaignMember", "Id, ContactId, CampaignId, Status", "CampaignId", "=", @formID, "ContactId", "=", @uniqueID)
+
+            if RowCount(@campaignMembers) > 0 then
+                // update campaign member object with target status
+                set @campaignMember = Row(@campaignMembers, 1)
+                set @campaignMemberId = Field(@campaignMember, "Id")
+                UpdateSingleSalesforceObject("CampaignMember", @campaignMemberId, "Status", "Form submit")
+            else
+                // create campaign member object with targeted status
+                set @campaignMember = CreateSalesforceObject("CampaignMember", 3, "CampaignId", @formID, "ContactId", @uniqueID, "Status", "Form submit")
+            endif
+        endif
+
+         // ...
+
+          // ...
+    
+    </script>
+    <body>
+        <main>
+            <h1>Thanks for your registration</h1>
+        </main>
+    </body>
+</html>
